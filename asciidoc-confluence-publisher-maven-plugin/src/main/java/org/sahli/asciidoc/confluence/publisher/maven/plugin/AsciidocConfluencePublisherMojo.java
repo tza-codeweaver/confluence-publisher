@@ -21,20 +21,18 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.asciidoctor.Attributes;
 import org.sahli.asciidoc.confluence.publisher.client.ConfluencePublisher;
 import org.sahli.asciidoc.confluence.publisher.client.ConfluencePublisherListener;
 import org.sahli.asciidoc.confluence.publisher.client.http.ConfluencePage;
 import org.sahli.asciidoc.confluence.publisher.client.http.ConfluenceRestClient;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherMetadata;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherPublishStrategy;
-import org.sahli.asciidoc.confluence.publisher.converter.AsciidocConfluenceConverter;
-import org.sahli.asciidoc.confluence.publisher.converter.AsciidocPagesStructureProvider;
-import org.sahli.asciidoc.confluence.publisher.converter.FolderBasedAsciidocPagesStructureProvider;
-import org.sahli.asciidoc.confluence.publisher.converter.PageTitlePostProcessor;
-import org.sahli.asciidoc.confluence.publisher.converter.PrefixAndSuffixPageTitlePostProcessor;
+import org.sahli.asciidoc.confluence.publisher.converter.*;
 
 import java.io.File;
 import java.nio.charset.Charset;
+import java.util.Map;
 
 /**
  * @author Alain Sahli
@@ -71,24 +69,27 @@ public class AsciidocConfluencePublisherMojo extends AbstractMojo {
     private String password;
 
     @Parameter
+    private Map<String, Object> attributes;
+
+    @Parameter
     private String pageTitlePrefix;
 
     @Parameter
     private String pageTitleSuffix;
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Override
     public void execute() throws MojoExecutionException {
         try {
-            PageTitlePostProcessor pageTitlePostProcessor = new PrefixAndSuffixPageTitlePostProcessor(this.pageTitlePrefix, this.pageTitleSuffix);
+            PageTitlePostProcessor pageTitlePostProcessor = new PrefixAndSuffixPageTitlePostProcessor(pageTitlePrefix, pageTitleSuffix);
 
-            AsciidocPagesStructureProvider asciidocPagesStructureProvider = new FolderBasedAsciidocPagesStructureProvider(this.asciidocRootFolder.toPath(), Charset.forName(this.sourceEncoding));
+            AsciidocPagesStructureProvider asciidocPagesStructureProvider = new FolderBasedAsciidocPagesStructureProvider(asciidocRootFolder.toPath(), Charset.forName(sourceEncoding));
 
-            AsciidocConfluenceConverter asciidocConfluenceConverter = new AsciidocConfluenceConverter(this.spaceKey, this.ancestorId);
-            ConfluencePublisherMetadata confluencePublisherMetadata = asciidocConfluenceConverter.convert(asciidocPagesStructureProvider, pageTitlePostProcessor, this.confluencePublisherBuildFolder.toPath());
+            AsciidocConfluenceConverter asciidocConfluenceConverter = new AsciidocConfluenceConverter(spaceKey, ancestorId);
+            Attributes attributes = new Attributes(this.attributes);
+            ConfluencePublisherMetadata confluencePublisherMetadata = asciidocConfluenceConverter.convert(asciidocPagesStructureProvider, pageTitlePostProcessor, confluencePublisherBuildFolder.toPath(), attributes);
             confluencePublisherMetadata.setPublishStrategy(strategy);
 
-            ConfluenceRestClient confluenceRestClient = new ConfluenceRestClient(this.rootConfluenceUrl, this.username, this.password);
+            ConfluenceRestClient confluenceRestClient = new ConfluenceRestClient(rootConfluenceUrl, username, password);
             ConfluencePublisherListener confluencePublisherListener = new LoggingConfluencePublisherListener(getLog());
 
             ConfluencePublisher confluencePublisher = new ConfluencePublisher(confluencePublisherMetadata, confluenceRestClient, confluencePublisherListener);
