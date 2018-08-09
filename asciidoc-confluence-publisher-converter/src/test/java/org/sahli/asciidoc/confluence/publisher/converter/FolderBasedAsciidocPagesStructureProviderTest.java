@@ -17,10 +17,11 @@
 package org.sahli.asciidoc.confluence.publisher.converter;
 
 import org.junit.Test;
-import org.sahli.asciidoc.confluence.publisher.converter.AsciidocPagesStructureProvider.AsciidocPage;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider.AsciidocPage;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.FolderBasedAsciidocPagesStructureProvider;
 
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;

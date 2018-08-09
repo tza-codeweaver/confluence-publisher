@@ -19,7 +19,8 @@ package org.sahli.asciidoc.confluence.publisher.converter;
 import org.asciidoctor.Attributes;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePageMetadata;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherMetadata;
-import org.sahli.asciidoc.confluence.publisher.converter.AsciidocPagesStructureProvider.AsciidocPage;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider.AsciidocPage;
 
 import java.io.IOException;
 import java.net.URI;

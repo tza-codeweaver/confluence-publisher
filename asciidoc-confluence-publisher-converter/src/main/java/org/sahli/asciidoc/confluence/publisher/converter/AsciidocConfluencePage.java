@@ -21,19 +21,14 @@ import org.asciidoctor.Attributes;
 import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.ast.Title;
-import org.sahli.asciidoc.confluence.publisher.converter.AsciidocPagesStructureProvider.AsciidocPage;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider.AsciidocPage;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
@@ -42,9 +37,7 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.nio.file.Files.exists;
-import static java.nio.file.Files.isDirectory;
-import static java.nio.file.Files.newInputStream;
+import static java.nio.file.Files.*;
 import static java.util.Arrays.stream;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.regex.Matcher.quoteReplacement;
@@ -82,15 +75,15 @@ public class AsciidocConfluencePage {
     }
 
     public String content() {
-        return this.htmlContent;
+        return htmlContent;
     }
 
     public String pageTitle() {
-        return this.pageTitle;
+        return pageTitle;
     }
 
     public Map<String, String> attachments() {
-        return unmodifiableMap(this.attachments);
+        return unmodifiableMap(attachments);
     }
 
     public static AsciidocConfluencePage newAsciidocConfluencePage(AsciidocPage asciidocPage, Charset sourceEncoding, Path templatesDir, Path pageAssetsFolder) {
@@ -187,7 +180,7 @@ public class AsciidocConfluencePage {
             throw new RuntimeException("templateDir folder is not a folder");
         }
 
-        attributes = new Attributes(attributes == null ? Collections.emptyMap() : attributes.map());
+        attributes = attributes == null || attributes.map() == null ? new Attributes() : new Attributes(new LinkedHashMap<>(attributes.map()));
         // disable table of contents since not supported by Confluence Converter
         attributes.setTableOfContents(false);
         attributes.setAttribute("imagesoutdir", generatedAssetsTargetFolder.toString());

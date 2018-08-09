@@ -23,7 +23,11 @@ import org.sahli.asciidoc.confluence.publisher.client.http.ConfluencePage;
 import org.sahli.asciidoc.confluence.publisher.client.http.ConfluenceRestClient;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherMetadata;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherPublishStrategy;
-import org.sahli.asciidoc.confluence.publisher.converter.*;
+import org.sahli.asciidoc.confluence.publisher.converter.AsciidocConfluenceConverter;
+import org.sahli.asciidoc.confluence.publisher.converter.PageTitlePostProcessor;
+import org.sahli.asciidoc.confluence.publisher.converter.PrefixAndSuffixPageTitlePostProcessor;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.FolderBasedAsciidocPagesStructureProvider;
 
 import java.io.IOException;
 import java.nio.charset.Charset;

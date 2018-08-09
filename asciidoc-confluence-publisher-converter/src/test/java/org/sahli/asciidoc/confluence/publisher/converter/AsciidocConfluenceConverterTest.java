@@ -21,6 +21,8 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePageMetadata;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherMetadata;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.AsciidocPagesStructureProvider;
+import org.sahli.asciidoc.confluence.publisher.converter.providers.FolderBasedAsciidocPagesStructureProvider;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;

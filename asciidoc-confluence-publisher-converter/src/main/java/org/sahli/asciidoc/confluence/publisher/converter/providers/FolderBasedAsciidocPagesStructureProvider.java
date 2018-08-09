@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.sahli.asciidoc.confluence.publisher.converter;
+package org.sahli.asciidoc.confluence.publisher.converter.providers;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
