@@ -100,28 +100,6 @@ public class ConfluenceRestClient implements ConfluenceClient {
     }
 
     @Override
-    public String getPageByTitle(String spaceKey, String title) throws NotFoundException, MultipleResultsException {
-        HttpGet pageByTitleRequest = this.httpRequestFactory.getPageByTitleRequest(spaceKey, title);
-
-        return sendRequestAndFailIfNot20x(pageByTitleRequest, (response) -> {
-            JsonNode jsonNode = parseJsonResponse(response);
-
-            int numberOfResults = jsonNode.get("size").asInt();
-            if (numberOfResults == 0) {
-                throw new NotFoundException();
-            }
-
-            if (numberOfResults > 1) {
-                throw new MultipleResultsException();
-            }
-
-            String contentId = extractIdFromJsonNode(jsonNode.withArray("results").elements().next());
-
-            return contentId;
-        });
-    }
-
-    @Override
     public void addAttachment(String contentId, String attachmentFileName, InputStream attachmentContent) {
         HttpPost addAttachmentRequest = this.httpRequestFactory.addAttachmentRequest(contentId, attachmentFileName, attachmentContent);
         sendRequestAndFailIfNot20x(addAttachmentRequest, (response) -> {

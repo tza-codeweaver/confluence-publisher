@@ -17,10 +17,7 @@
 package org.sahli.asciidoc.confluence.publisher.client;
 
 import org.apache.commons.lang.StringUtils;
-import org.sahli.asciidoc.confluence.publisher.client.http.ConfluenceAttachment;
-import org.sahli.asciidoc.confluence.publisher.client.http.ConfluenceClient;
-import org.sahli.asciidoc.confluence.publisher.client.http.ConfluencePage;
-import org.sahli.asciidoc.confluence.publisher.client.http.NotFoundException;
+import org.sahli.asciidoc.confluence.publisher.client.http.*;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePageMetadata;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherMetadata;
 import org.sahli.asciidoc.confluence.publisher.client.metadata.ConfluencePublisherPublishStrategy;
@@ -67,42 +64,67 @@ public class ConfluencePublisher {
     }
 
     public void publish() {
-        assertMandatoryParameter(isNotBlank(this.metadata.getSpaceKey()), "spaceKey");
-        assertMandatoryParameter(isNotBlank(this.metadata.getAncestorId()), "ancestorId");
+        assertMandatoryParameter(isNotBlank(metadata.getSpaceKey()), "spaceKey");
+        assertMandatoryParameter(isNotBlank(metadata.getAncestorId()), "ancestorId");
 
-        switch(this.metadata.getPublishStrategy()) {
+        switch (metadata.getPublishStrategy()) {
             case APPEND_TO_ANCESTOR:
-                startPublishingUnderAncestorId(this.metadata.getPages(), this.metadata.getSpaceKey(), this.metadata.getAncestorId());
+                startPublishingUnderAncestorId(metadata.getPages(), metadata.getSpaceKey(), metadata.getAncestorId());
                 break;
             case REPLACE_ANCESTOR:
                 // verify that only a single root exists
-                if (this.metadata.getPages().size() > 1) {
+                if (metadata.getPages().size() > 1) {
                     throw new IllegalArgumentException(String.format("Multiple root pages detected: %s. " +
                         "Publishing to confluence with the %s strategy only allows a single root to be defined.",
-                        StringUtils.join(this.metadata.getPages().stream().map(page -> "'" + page.getTitle() + "'").collect(Collectors.toList()), ", "),
+                        StringUtils.join(metadata.getPages().stream().map(page -> "'" + page.getTitle() + "'").collect(Collectors.toList()), ", "),
                         ConfluencePublisherPublishStrategy.REPLACE_ANCESTOR.name())
                     );
                 }
 
-                if (this.metadata.getPages().size() > 0) {
-                    // replace ancestor title with single root page title
-                    ConfluencePageMetadata rootPageMetaData = this.metadata.getPages().get(0);
-                    updatePage(this.metadata.getAncestorId(), rootPageMetaData);
+                if (metadata.getPages().size() > 0) {
+                    ConfluencePageMetadata rootPageMetaData = metadata.getPages().get(0);
 
                     // publish children under root page
-                    startPublishingUnderAncestorId(rootPageMetaData.getChildren(), this.metadata.getSpaceKey(), this.metadata.getAncestorId());
+                    startPublishingUnderAncestorId(rootPageMetaData.getChildren(), metadata.getSpaceKey(), metadata.getAncestorId());
+
+                    // replace ancestor title with single root page title
+                    ConfluencePage rootPage = confluenceClient.getPageWithContentAndVersionById(metadata.getAncestorId());
+                    updatePage(rootPage, rootPageMetaData);
+                    deleteConfluenceAttachmentsNotPresentUnderPage(metadata.getAncestorId(), rootPageMetaData.getAttachments());
+                    addAttachments(metadata.getAncestorId(), rootPageMetaData.getAttachments());
                 }
                 break;
             default:
-                throw new IllegalStateException("Invalid publish strategy defined: " + this.metadata.getPublishStrategy());
+                throw new IllegalStateException("Invalid publish strategy defined: " + metadata.getPublishStrategy());
         }
-        this.confluencePublisherListener.publishCompleted();
+        confluencePublisherListener.publishCompleted();
     }
 
     private void startPublishingUnderAncestorId(List<ConfluencePageMetadata> pages, String spaceKey, String ancestorId) {
-        deleteConfluencePagesNotPresentUnderAncestor(pages, ancestorId);
+        List<ConfluencePage> actualPages = deleteConfluencePagesNotPresentUnderAncestor(pages, ancestorId);
         pages.forEach(page -> {
-            String contentId = addOrUpdatePageUnderAncestor(spaceKey, ancestorId, page);
+            // look for page in existing pages
+            String contentId;
+            ConfluencePage actualPage = actualPages.stream()
+                .filter(p -> p.getTitle().equals(page.getTitle()))
+                .reduce(null, (previousPage, newPage) -> {
+                    if (previousPage != null) {
+                        throw new MultipleResultsException();
+                    }
+                    return newPage;
+                });
+
+            if (actualPage != null) {
+                // update page when it already exists ...
+                contentId = actualPage.getContentId();
+                updatePage(actualPage, page);
+            } else {
+                // ... or add it when it doesn't exist yet
+                String content = fileContent(page.getContentFilePath(), UTF_8);
+                contentId = confluenceClient.addPageUnderAncestor(spaceKey, ancestorId, page.getTitle(), content);
+                confluenceClient.setPropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY, contentHash(content));
+                confluencePublisherListener.pageAdded(new ConfluencePage(ancestorId, contentId, page.getTitle(), content, INITIAL_PAGE_VERSION));
+            }
 
             deleteConfluenceAttachmentsNotPresentUnderPage(contentId, page.getAttachments());
             addAttachments(contentId, page.getAttachments());
@@ -110,60 +132,46 @@ public class ConfluencePublisher {
         });
     }
 
-    private void deleteConfluencePagesNotPresentUnderAncestor(List<ConfluencePageMetadata> pagesToKeep, String ancestorId) {
-        List<ConfluencePage> childPagesOnConfluence = this.confluenceClient.getChildPages(ancestorId);
+    private List<ConfluencePage> deleteConfluencePagesNotPresentUnderAncestor(List<ConfluencePageMetadata> pagesToKeep, String ancestorId) {
+        List<ConfluencePage> childPagesOnConfluence = confluenceClient.getChildPages(ancestorId);
 
         List<ConfluencePage> childPagesOnConfluenceToDelete = childPagesOnConfluence.stream()
                 .filter(childPageOnConfluence -> pagesToKeep.stream().noneMatch(page -> page.getTitle().equals(childPageOnConfluence.getTitle())))
                 .collect(toList());
 
         childPagesOnConfluenceToDelete.forEach(pageToDelete -> {
-            List<ConfluencePage> pageScheduledForDeletionChildPagesOnConfluence = this.confluenceClient.getChildPages(pageToDelete.getContentId());
-            pageScheduledForDeletionChildPagesOnConfluence.forEach(parentPageToDelete -> this.deleteConfluencePagesNotPresentUnderAncestor(emptyList(), pageToDelete.getContentId()));
-            this.confluenceClient.deletePage(pageToDelete.getContentId());
-            this.confluencePublisherListener.pageDeleted(pageToDelete);
+            List<ConfluencePage> pageScheduledForDeletionChildPagesOnConfluence = confluenceClient.getChildPages(pageToDelete.getContentId());
+            pageScheduledForDeletionChildPagesOnConfluence.forEach(parentPageToDelete -> deleteConfluencePagesNotPresentUnderAncestor(emptyList(), pageToDelete.getContentId()));
+            confluenceClient.deletePage(pageToDelete.getContentId());
+            confluencePublisherListener.pageDeleted(pageToDelete);
         });
+
+        return childPagesOnConfluence;
     }
 
     private void deleteConfluenceAttachmentsNotPresentUnderPage(String contentId, Map<String, String> attachments) {
-        List<ConfluenceAttachment> confluenceAttachments = this.confluenceClient.getAttachments(contentId);
+        List<ConfluenceAttachment> confluenceAttachments = confluenceClient.getAttachments(contentId);
 
         List<String> confluenceAttachmentsToDelete = confluenceAttachments.stream()
                 .filter(confluenceAttachment -> attachments.keySet().stream().noneMatch(attachmentFileName -> attachmentFileName.equals(confluenceAttachment.getTitle())))
                 .map(ConfluenceAttachment::getId)
                 .collect(toList());
 
-        confluenceAttachmentsToDelete.forEach(this.confluenceClient::deleteAttachment);
+        confluenceAttachmentsToDelete.forEach(confluenceClient::deleteAttachment);
     }
 
-    private String addOrUpdatePageUnderAncestor(String spaceKey, String ancestorId, ConfluencePageMetadata page) {
-        String contentId;
-
-        try {
-            contentId = this.confluenceClient.getPageByTitle(spaceKey, page.getTitle());
-            updatePage(contentId, page);
-        } catch (NotFoundException e) {
-            String content = fileContent(page.getContentFilePath(), UTF_8);
-            contentId = this.confluenceClient.addPageUnderAncestor(spaceKey, ancestorId, page.getTitle(), content);
-            this.confluenceClient.setPropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY, contentHash(content));
-            this.confluencePublisherListener.pageAdded(new ConfluencePage(ancestorId, contentId, page.getTitle(), content, INITIAL_PAGE_VERSION));
-        }
-
-        return contentId;
-    }
-
-    private void updatePage(String contentId, ConfluencePageMetadata page) {
+    private void updatePage(ConfluencePage existingPage, ConfluencePageMetadata page) {
         String content = fileContent(page.getContentFilePath(), UTF_8);
-        ConfluencePage existingPage = this.confluenceClient.getPageWithContentAndVersionById(contentId);
-        String existingContentHash = this.confluenceClient.getPropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY);
+        String contentId = existingPage.getContentId();
+        String existingContentHash = confluenceClient.getPropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY);
         String newContentHash = contentHash(content);
 
         if (notSameContentHash(existingContentHash, newContentHash) || !existingPage.getTitle().equals(page.getTitle())) {
-            this.confluenceClient.deletePropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY);
+            confluenceClient.deletePropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY);
             int newPageVersion = existingPage.getVersion() + 1;
-            this.confluenceClient.updatePage(contentId, existingPage.getAncestorId(), page.getTitle(), content, newPageVersion);
-            this.confluenceClient.setPropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY, contentHash(content));
-            this.confluencePublisherListener.pageUpdated(existingPage, new ConfluencePage(existingPage.getAncestorId(), contentId, page.getTitle(), content, newPageVersion));
+            confluenceClient.updatePage(contentId, existingPage.getAncestorId(), page.getTitle(), content, newPageVersion);
+            confluenceClient.setPropertyByKey(contentId, CONTENT_HASH_PROPERTY_KEY, contentHash(content));
+            confluencePublisherListener.pageUpdated(existingPage, new ConfluencePage(existingPage.getAncestorId(), contentId, page.getTitle(), content, newPageVersion));
         }
     }
 
@@ -179,15 +187,15 @@ public class ConfluencePublisher {
         Path absoluteAttachmentPath = absoluteAttachmentPath(attachmentPath);
 
         try {
-            ConfluenceAttachment existingAttachment = this.confluenceClient.getAttachmentByFileName(contentId, attachmentFileName);
-            InputStream existingAttachmentContent = this.confluenceClient.getAttachmentContent(existingAttachment.getRelativeDownloadLink());
+            ConfluenceAttachment existingAttachment = confluenceClient.getAttachmentByFileName(contentId, attachmentFileName);
+            InputStream existingAttachmentContent = confluenceClient.getAttachmentContent(existingAttachment.getRelativeDownloadLink());
 
             if (!isSameContent(existingAttachmentContent, fileInputStream(absoluteAttachmentPath))) {
-                this.confluenceClient.updateAttachmentContent(contentId, existingAttachment.getId(), fileInputStream(absoluteAttachmentPath));
+                confluenceClient.updateAttachmentContent(contentId, existingAttachment.getId(), fileInputStream(absoluteAttachmentPath));
             }
 
         } catch (NotFoundException e) {
-            this.confluenceClient.addAttachment(contentId, attachmentFileName, fileInputStream(absoluteAttachmentPath));
+            confluenceClient.addAttachment(contentId, attachmentFileName, fileInputStream(absoluteAttachmentPath));
         }
     }
 

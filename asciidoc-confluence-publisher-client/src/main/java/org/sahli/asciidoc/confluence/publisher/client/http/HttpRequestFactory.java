@@ -143,22 +143,6 @@ class HttpRequestFactory {
         return new HttpDelete(this.confluenceRestApiEndpoint + "/content/" + attachmentId);
     }
 
-    HttpGet getPageByTitleRequest(String spaceKey, String title) {
-        assertMandatoryParameter(isNotBlank(spaceKey), "spaceKey");
-        assertMandatoryParameter(isNotBlank(title), "title");
-
-        String encodedTitle;
-        try {
-            encodedTitle = URLEncoder.encode(title, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("Could not encode title", e);
-        }
-
-        String searchQuery = this.confluenceRestApiEndpoint + "/content?spaceKey=" + spaceKey + "&title=" + encodedTitle;
-
-        return new HttpGet(searchQuery);
-    }
-
     HttpGet getAttachmentByFileNameRequest(String contentId, String attachmentFileName, String expandOptions) {
         assertMandatoryParameter(isNotBlank(contentId), "contentId");
         assertMandatoryParameter(isNotBlank(attachmentFileName), "attachmentFileName");

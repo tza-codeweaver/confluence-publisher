@@ -313,41 +313,6 @@ public class HttpRequestFactoryTest {
     }
 
     @Test
-    public void getPageByTitleRequest_withValidParameters_returnsValidHttpGet() {
-        // arrange
-        String spaceKey = "~personalSpace";
-        String title = "Some page";
-
-        // act
-        HttpGet getPageByTitleRequest = this.httpRequestFactory.getPageByTitleRequest(spaceKey, title);
-
-        // assert
-        assertThat(getPageByTitleRequest.getMethod(), is("GET"));
-        assertThat(getPageByTitleRequest.getURI().toString(),
-                is(CONFLUENCE_REST_API_ENDPOINT + "/content?spaceKey=" + spaceKey + "&title=" + "Some+page"));
-    }
-
-    @Test
-    public void getPageByTitleRequest_withEmptySpaceKey_throwsIllegalArgumentException() {
-        // arrange
-        this.expectedException.expect(IllegalArgumentException.class);
-        this.expectedException.expectMessage("spaceKey must be set");
-
-        // act
-        this.httpRequestFactory.getPageByTitleRequest("", "Some page");
-    }
-
-    @Test
-    public void getPageByTitleRequest_withEmptyTitle_throwsIllegalArgumentException() {
-        // arrange
-        this.expectedException.expect(IllegalArgumentException.class);
-        this.expectedException.expectMessage("title must be set");
-
-        // act
-        this.httpRequestFactory.getPageByTitleRequest("~personalSpace", "");
-    }
-
-    @Test
     public void getAttachmentByFileNameRequest_withMinimalParameters_returnsValidHttpGet() {
         // arrange
         String contentId = "1234";

@@ -129,40 +129,6 @@ public class ConfluenceRestClientTest {
     }
 
     @Test
-    public void getPageByTitle_withValidParameters_sendsGetRequestAndReturnsFirstResultId() throws Exception {
-        // arrange
-        String expectedContentId = "1234";
-        CloseableHttpClient httpClientMock = recordHttpClientForSingleResponseWithContentAndStatusCode("{\"results\": [{\"id\":\"" + expectedContentId + "\"}], \"size\": 1}", 200);
-        ConfluenceRestClient confluenceRestClient = new ConfluenceRestClient(CONFLUENCE_ROOT_URL, httpClientMock, null, null);
-
-        // act
-        String contentId = confluenceRestClient.getPageByTitle("~personalSpace", "Some title");
-
-        // assert
-        assertThat(contentId, is(expectedContentId));
-    }
-
-    @Test(expected = NotFoundException.class)
-    public void getPageByTitle_withEmptyResult_throwsPageNotFoundException() throws Exception {
-        // arrange
-        CloseableHttpClient httpClientMock = recordHttpClientForSingleResponseWithContentAndStatusCode("{\"size\": 0}", 200);
-        ConfluenceRestClient confluenceRestClient = new ConfluenceRestClient(CONFLUENCE_ROOT_URL, httpClientMock, null, null);
-
-        // act + assert
-        confluenceRestClient.getPageByTitle("~personalSpace", "Some title");
-    }
-
-    @Test(expected = MultipleResultsException.class)
-    public void getPageByTitle_withMultipleResults_throwsMultipleResultsException() throws Exception {
-        // arrange
-        CloseableHttpClient httpClientMock = recordHttpClientForSingleResponseWithContentAndStatusCode("{\"size\": 2}", 200);
-        ConfluenceRestClient confluenceRestClient = new ConfluenceRestClient(CONFLUENCE_ROOT_URL, httpClientMock, null, null);
-
-        // act + assert
-        confluenceRestClient.getPageByTitle("~personalSpace", "Some title");
-    }
-
-    @Test
     public void addAttachment_withValidParameters_sendsMultipartHttpPostRequest() throws Exception {
         // arrange
         CloseableHttpClient httpClientMock = recordHttpClientForSingleResponseWithContentAndStatusCode("", 200);
