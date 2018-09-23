@@ -55,6 +55,9 @@ public class AsciidocConfluencePublisherMojo extends AbstractMojo {
     @Parameter
     private File asciidocRootFolder;
 
+    @Parameter(defaultValue = "false")
+    private boolean skip;
+
     @Parameter(defaultValue = "UTF-8")
     private String sourceEncoding;
 
@@ -90,6 +93,12 @@ public class AsciidocConfluencePublisherMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
+        if (skip) {
+
+            getLog().debug("skipping run as per configuration.");
+            return;
+        }
+
         try {
             PageTitlePostProcessor pageTitlePostProcessor = new PrefixAndSuffixPageTitlePostProcessor(pageTitlePrefix, pageTitleSuffix);
 
